@@ -1,0 +1,141 @@
+#include <iostream>
+#include <chrono>
+#include <iomanip>
+#include <vector>
+#include <limits>
+
+using namespace std;
+using namespace std::chrono;
+
+struct Node {
+    int data;
+    Node* next;
+};
+
+class MemoryPool {
+private:
+    Node* pool;
+    Node* freeList;
+public:
+    MemoryPool(size_t size) {
+        pool = new Node[size];
+        freeList = pool;
+        for (size_t i = 0; i < size - 1; ++i) pool[i].next = &pool[i + 1];
+        pool[size - 1].next = nullptr;
+    }
+    Node* allocate() {
+        if (!freeList) return nullptr;
+        Node* n = freeList;
+        freeList = freeList->next;
+        return n;
+    }
+    void deallocate(Node* n) {
+        n->next = freeList;
+        freeList = n;
+    }
+    ~MemoryPool() { delete[] pool; }
+};
+
+int main() {
+    int startCount, step;
+    const int iterations = 5;
+    cout << "RESEARCH: Performance Comparison Tablels(  Memory managment)------  \n Programmers : Mohammed_Omer | Safwan_Alfadl\n";
+    cout << "Enter Start Count: "; cin >> startCount;
+    cout << "Enter Step: "; cin >> step;
+
+    //  التوقف الأول قبل التنفيذ :-
+    cout << "\n Take Snapshot #1 ";
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin.get();
+
+    // ######################################
+
+    struct Result {
+        int n;
+        long long addT, addO, delT, delO;    };
+    vector<Result> results;
+
+    for (int i = 1; i <= 5; i++) {
+        int n = startCount + (i - 1) * step;
+        long long sAT = 0, sDT = 0, sAO = 0, sDO = 0;
+
+        for (int iter = 0; iter < iterations; iter++) {
+            auto s1 = high_resolution_clock::now();
+            Node* h1 = nullptr;
+            for (int j = 0; j < n; j++) h1 = new Node{ j, h1 };
+            auto e1 = high_resolution_clock::now();
+            sAT += duration_cast<microseconds>(e1 - s1).count();
+
+            auto s2 = high_resolution_clock::now();
+            while (h1) { Node* t = h1; h1 = h1->next; delete t; }
+            auto e2 = high_resolution_clock::now();
+            sDT += duration_cast<microseconds>(e2 - s2).count();
+
+            MemoryPool pool(n);
+            auto s3 = high_resolution_clock::now();
+            Node* h2 = nullptr;
+            for (int j = 0; j < n; j++) {
+                Node* nn = pool.allocate();
+                nn->data = j; nn->next = h2; h2 = nn;
+            }
+            auto e3 = high_resolution_clock::now();
+            sAO += duration_cast<microseconds>(e3 - s3).count();
+
+            auto s4 = high_resolution_clock::now();
+            while (h2) { Node* t = h2; h2 = h2->next; pool.deallocate(t); }
+            auto e4 = high_resolution_clock::now();
+            sDO += duration_cast<microseconds>(e4 - s4).count();
+        }
+        results.push_back({ n, sAT / 5, sAO / 5, sDT / 5, sDO / 5 });
+    }
+
+    // --- الجدول الأول: الإضافة ---
+    cout << "\n[TABLE 1: INSERTION PERFORMANCE]\n";
+    cout << setfill('-') << setw(80) << "-" << endl;
+    cout << "| Nodes | Trad. Add | Opt. Add | Time Diff (us) | Improvement % |" << endl;
+    cout << setw(80) << "-" << setfill(' ') << endl;
+    for (auto r : results) {
+        long long diff = r.addT - r.addO;
+        double imp = (double)diff / r.addT * 100.0;
+        cout << "| " << setw(5) << r.n << " | " << setw(9) << r.addT << " | " << setw(8) << r.addO << " | " << setw(14) << diff << " | " << fixed << setprecision(2) << setw(11) << imp << "% |" << endl;
+    }
+    // التوقف بعد الإضافة (insertion)
+    cout << "Insertion completed. Take Snapshot #2";
+    cin.get();
+    //############################## 
+    
+
+    // --- الجدول الثاني: الحذف ---
+    cout << "\n[TABLE 2: DELETION PERFORMANCE]\n";
+    cout << setfill('-') << setw(80) << "-" << endl;
+    cout << "| Nodes | Trad. Del | Opt. Del | Time Diff (us) | Improvement % |" << endl;
+    cout << setw(80) << "-" << setfill(' ') << endl;
+    for (auto r : results) {
+        long long diff = r.delT - r.delO;
+        double imp = (double)diff / r.delT * 100.0;
+        cout << "| " << setw(5) << r.n << " | " << setw(9) << r.delT << " | " << setw(8) << r.delO << " | " << setw(14) << diff << " | " << fixed << setprecision(2) << setw(11) << imp << "% |" << endl;
+    }
+
+    // التوقف بعد الحذف (Deletion)
+    cout << "Deletion completed. Take Snapshot #3 ";
+    cin.get();
+    //############################## 
+    
+
+    // --- الجدول الثالث: الأداء الكلي ---
+    cout << "\n[TABLE 3: TOTAL PERFORMANCE (Add + Del)]\n";
+    cout << setfill('-') << setw(80) << "-" << endl;
+    cout << "| Nodes | Total Trad| Total Opt| Time Diff (us) | Improvement % |" << endl;
+    cout << setw(80) << "-" << setfill(' ') << endl;
+    for (auto r : results) {
+        long long tT = r.addT + r.delT;
+        long long tO = r.addO + r.delO;
+        long long diff = tT - tO;
+        double imp = (double)diff / tT * 100.0;
+        cout << "| " << setw(5) << r.n << " | " << setw(10) << tT << " | " << setw(9) << tO << " | " << setw(14) << diff << " | " << fixed << setprecision(2) << setw(11) << imp << "% |" << endl;
+    }
+
+    cout << "\nTables Updated with Absolute Difference. ";
+    cin.ignore(); cin.get();
+    return 0;
+}
